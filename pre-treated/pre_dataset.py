@@ -7,13 +7,13 @@ import os
 
 # 调试方法
 def demo_test():
-    dir = "TB1vLFzLXXXXXbpXVXXunYpLFXX.jpg"
+    dir = "T1mLyYXvRaXXXXXXXX_!!1-item_pic.gif.jpg"
     img = cv2.imread(dir)
-    f = open("D:\\work\\tianchi\\dataset\\train_1000\\txt_1000\\TB1vLFzLXXXXXbpXVXXunYpLFXX.txt", encoding='UTF-8')
+    f = open("T1mLyYXvRaXXXXXXXX_!!1-item_pic.gif.txt", encoding='UTF-8')
     regions = f.read()
     region_line = regions.split()
     # for sites in region_line:
-    sites = region_line[7].split(',')
+    sites = region_line[0].split(',')
     #     sites = sites.split(',')
     x1 = np.float32(sites[0])
     y1 = np.float32(sites[1])
@@ -44,8 +44,7 @@ def demo_test():
     dst_points = np.float32([[0, 0], [maxWidth, 0], [maxWidth, maxHeight], [0, maxHeight]])
     # 进行仿射变换
     projective_matrix = cv2.getPerspectiveTransform(src_points, dst_points)
-    rows, cols = img.shape[:2]
-    target = cv2.warpPerspective(img, projective_matrix, (cols, rows))
+    target = cv2.warpPerspective(img, projective_matrix, (0, 0))
     target = target[0:maxHeight, 0:maxWidth]
     cv2.imshow("image", img)      # 显示图片
     cv2.imshow("target", target)  # 显示图片
@@ -111,64 +110,14 @@ def pre_image(img_dir, txt_dir, save_dir):
                         if not os.path.exists(save_res):
                             os.makedirs(save_res)
                         # 若是当前文件报错则丢弃当前文件进入下一次分割输出
-                        try:
-                            cv2.imencode(".jpg", target)[1].tofile(save_path)
-                        except Exception:
-                            continue
+                        cv2.imencode(".jpg", target)[1].tofile(save_path)
+                    except Exception:
+                        print(filepath+"下的"+sites[8]+"Exception异常！！")
+                        continue
                     except FileNotFoundError:
-                        print(filepath+"下的"+sites[8]+"出现异常！！")
-                        x1 = np.float32(sites[0])
-                        y1 = np.float32(sites[1])
-                        x2 = np.float32(sites[2])
-                        y2 = np.float32(sites[3])
-                        x3 = np.float32(sites[4])
-                        y3 = np.float32(sites[5])
-                        x4 = np.float32(sites[6])
-                        y4 = np.float32(sites[7])
-                        # 划线框住目标区域
-                        A, B, C, D = (x1, y1), (x2, y2), (x3, y3), (x4, y4)
-                        cv2.line(img, A, B, (255, 0, 255), 2)
-                        cv2.line(img, B, C, (255, 0, 255), 2)
-                        cv2.line(img, C, D, (255, 0, 255), 2)
-                        cv2.line(img, D, A, (255, 0, 255), 2)
-                        cv2.imshow("image", img)  # 显示图片
-                        cv2.waitKey(0)
-                    except ValueError:
-                        print(filepath+"下的"+sites[8]+"出现异常！！")
-                        x1 = np.float32(sites[0])
-                        y1 = np.float32(sites[1])
-                        x2 = np.float32(sites[2])
-                        y2 = np.float32(sites[3])
-                        x3 = np.float32(sites[4])
-                        y3 = np.float32(sites[5])
-                        x4 = np.float32(sites[6])
-                        y4 = np.float32(sites[7])
-                        # 划线框住目标区域
-                        A, B, C, D = (x1, y1), (x2, y2), (x3, y3), (x4, y4)
-                        cv2.line(img, A, B, (255, 0, 255), 2)
-                        cv2.line(img, B, C, (255, 0, 255), 2)
-                        cv2.line(img, C, D, (255, 0, 255), 2)
-                        cv2.line(img, D, A, (255, 0, 255), 2)
-                        cv2.imshow("image", img)  # 显示图片
-                        cv2.waitKey(0)
-                    except cv2.error:
-                        print(filepath + "下的" + sites[8] + "出现异常！！")
-                        x1 = np.float32(sites[0])
-                        y1 = np.float32(sites[1])
-                        x2 = np.float32(sites[2])
-                        y2 = np.float32(sites[3])
-                        x3 = np.float32(sites[4])
-                        y3 = np.float32(sites[5])
-                        x4 = np.float32(sites[6])
-                        y4 = np.float32(sites[7])
-                        # 划线框住目标区域
-                        A, B, C, D = (x1, y1), (x2, y2), (x3, y3), (x4, y4)
-                        cv2.line(img, A, B, (255, 0, 255), 2)
-                        cv2.line(img, B, C, (255, 0, 255), 2)
-                        cv2.line(img, C, D, (255, 0, 255), 2)
-                        cv2.line(img, D, A, (255, 0, 255), 2)
-                        cv2.imshow("image", img)  # 显示图片
-                        cv2.waitKey(0)
+                        print(filepath+"下的"+sites[8]+"出现文件找不到异常！！")
+                        continue
+
 
 # 输出图片替换其中的特殊字符为对应的ascii值
 def validateName(title):
@@ -178,9 +127,9 @@ def validateName(title):
 
 
 if __name__ == '__main__':
-    img_dir = "D:\\work\\tianchi\\dataset\\train_1000\\image_1000\\"
-    txt_dir = "D:\\work\\tianchi\\dataset\\train_1000\\txt_1000\\"
-    save_dir = "D:\\work\\tianchi\\pre-treatment\\train_set\\"
+    img_dir = "D:\\work\\tianchi\\dataset\\image6001-9000\\"
+    txt_dir = "D:\\work\\tianchi\\dataset\\txt6001-9000\\"
+    save_dir = "D:\\work\\tianchi\\train_set\\"
     pre_image(img_dir, txt_dir, save_dir)
     # print(validateName("renhonghuai????"))
-    demo_test()
+    # demo_test()
