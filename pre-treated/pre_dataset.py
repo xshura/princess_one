@@ -110,7 +110,11 @@ def pre_image(img_dir, txt_dir, save_dir):
                             continue
                         if not os.path.exists(save_res):
                             os.makedirs(save_res)
-                        cv2.imencode(".jpg", target)[1].tofile(save_path)
+                        # 若是当前文件报错则丢弃当前文件进入下一次分割输出
+                        try:
+                            cv2.imencode(".jpg", target)[1].tofile(save_path)
+                        except Exception:
+                            continue
                     except FileNotFoundError:
                         print(filepath+"下的"+sites[8]+"出现异常！！")
                         x1 = np.float32(sites[0])
