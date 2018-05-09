@@ -49,14 +49,15 @@ def demo_test():
     cv2.imshow("image", img)      # 显示图片
     cv2.imshow("target", target)  # 显示图片
     # 另存为图像
-    save_dir = "D:\\work\\tianchi\\pre-treatment\\train_set\\" + sites[8] + ".jpg"
+    # save_dir = "D:\\work\\tianchi\\pre-treatment\\train_set\\" + sites[8] + ".jpg"
     cv2.imwrite(save_dir, target)
     cv2.waitKey(0)
 
 
 # 图片预处理方法
 def pre_image(img_dir, txt_dir, save_dir):
-    unkown = 0
+    num = 0
+    labelfile = open('labels.txt', 'a')
     for root, dirs, files in os.walk(img_dir):
         for file in files:
             filepath = os.path.join(root, file)
@@ -77,6 +78,8 @@ def pre_image(img_dir, txt_dir, save_dir):
                         y3 = np.float32(sites[5])
                         x4 = np.float32(sites[6])
                         y4 = np.float32(sites[7])
+                        # 若是###则丢弃
+                        if sites[8] == "###": continue
                         # 缩放目标点坐标 左上 右上 右下 左下
                         src_points = np.float32([[x1, y1], [x4, y4], [x3, y3], [x2, y2]])
                         # 计算矫正后目标矩形 width 和 high
@@ -98,13 +101,14 @@ def pre_image(img_dir, txt_dir, save_dir):
                         # cv2.imshow("image", img)  # 显示图片
                         # cv2.imshow("target", target)  # 显示图片
                         # 另存为图像
-                        file_name = validateName(sites[8])
+                        num += 1
+                        file_name = padding_zero(num)
                         save_res = save_dir
-                        if file_name == "###":
-                            file_name = file_name + "_" + str(unkown)
-                            save_res = save_dir + "###\\"
-                            unkown += 1
                         save_path = save_res + file_name + ".jpg"
+                        # 将label编号对应到text文件里面
+                        value = file_name+' '+sites[8]+'\n'
+                        value.encode("utf-8")
+                        labelfile.write(value)
                         if target is None:
                             continue
                         if not os.path.exists(save_res):
@@ -117,19 +121,32 @@ def pre_image(img_dir, txt_dir, save_dir):
                     except FileNotFoundError:
                         print(filepath+"下的"+sites[8]+"出现文件找不到异常！！")
                         continue
+    labelfile.close()
+
+
+def padding_zero(number):
+    x = 10000000
+    if number >= x: return
+    res = x + number
+    res = str(res)
+    return res[1:]
+
+
 
 
 # 输出图片替换其中的特殊字符为对应的ascii值
 def validateName(title):
     rstr = r"[\/\\\:\*\?\"\<\>\|]"  # '/ \ : * ? " < > |'
-    new_title = re.sub(rstr, lambda m:'_'+str(ord(m.group(0))), title)  # 替换为下划线+ascii值
+    new_title = re.sub(rstr, lambda m: '_sign_'+str(ord(m.group(0))), title)  # 替换为下划线+ascii值
     return new_title
 
 
 if __name__ == '__main__':
-    img_dir = "D:\\work\\tianchi\\dataset\\image6001-9000\\"
+    # img_dir = "D:\\work\\tianchi\\dataset\\image6001-9000\\"
+    img_dir = "D:\\work\\tianchi\\test\\"
     txt_dir = "D:\\work\\tianchi\\dataset\\txt6001-9000\\"
     save_dir = "D:\\work\\tianchi\\train_set\\"
     pre_image(img_dir, txt_dir, save_dir)
     # print(validateName("renhonghuai????"))
     # demo_test()
+    # print(padding_zero(23))
