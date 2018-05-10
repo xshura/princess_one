@@ -54,37 +54,20 @@ class Util(object):
         labels_encode = [self.encode_maps[x[0]] for x in labels_y]
         labels_onehot = self.onehot(labels_encode)
         labels_seq = np.asarray(labels_seq, dtype=str)
-        labels_onehot = np.asarray(labels_onehot, dtype=float)
-        labels_onehot = tf.cast(labels_onehot, tf.float32)
         # print(labels_seq)
         # print(labels_onehot)
-        images = []
-        # 通过编号获取图像
-        for p in labels_seq:
-            path = self.img_dir + p + '.jpg'
-            img = Image.open(path)
-            img = np.array(img)
-            img = self.convert2gray(img)
-            img = img.flatten() / 255
-            img = tf.float32(img, 'float')
-            images.append(img)
+        # images = []
+        # # 通过编号获取图像
+        # for p in labels_seq:
+        #     path = self.img_dir + p + '.jpg'
+        #     img = Image.open(path)
+        #     img = np.array(img)
+        #     img = self.convert2gray(img)
+        #     img = img.flatten() / 255
+        #     img = tf.float32(img, 'float')
+        #     images.append(img)
         # 返回训练集
-        return images, labels_onehot
-
-    # 获取下一个batch
-    def get_next_batch(self, batch_size):
-        batch_x = np.zeros([batch_size, self.IMAGE_HEIGHT * self.IMAGE_WIDTH])
-        batch_y = np.zeros([batch_size, self.maxlength+1])
-        train_X, train_Y = self.load_labels('labels.txt')
-        end_index = self.START_INDEX + batch_size
-        if end_index >= len(train_X): end_index = len(train_X)
-        for i in range(0, batch_size):
-            if (self.START_INDEX+i) >= self.maxlength: break
-            image, label = train_X[self.START_INDEX+i], train_Y[end_index+i]
-            batch_x[i, :] = image
-            batch_y[i, :] = label
-        self.START_INDEX = end_index
-        return batch_x, batch_y
+        return labels_seq, labels_onehot
 
     # 图像灰化处理
     def convert2gray(self, img):
@@ -98,10 +81,34 @@ class Util(object):
         else:
             return img
 
+    # 获取batch
+    def get_batches(self, image, label, resize_w, resize_h, batch_size, capacity):
+        # 将images and labels 的列表转换为 tensor 张量
+        image = tf.cast(image, tf.string)
+        label = np.asarray(label, dtype=float)
+        label = tf.cast(label, tf.float32)
+        queue = tf.train.slice_input_producer([image, label])
+        label = queue[1]
+        image_c = tf.read_file(self.img_dir + queue[0] + '.jpg')
+        image = tf.image.decode_jpeg(image_c, channels=3)
+        # resize
+        image = tf.image.resize_image_with_crop_or_pad(image, resize_w, resize_h)
+        # (x - mean) / adjusted_stddev
+        image = tf.image.per_image_standardization(image)
+
+        image_batch, label_batch = tf.train.batch([image, label],
+                                                  batch_size=batch_size,
+                                                  num_threads=64,
+                                                  capacity=capacity)
+        images_batch = tf.cast(image_batch, tf.float32)
+        labels_batch = tf.reshape(label_batch, shape=[batch_size, self.maxlength + 1])
+        return images_batch, labels_batch
+
 
 if __name__ == '__main__':
     u = Util()
     # u.load_labels('labels.txt')
-    batch_x, batch_y = u.get_next_batch(3)
+    images, labels = u.load_labels('labels.txt')
+    batch_x, batch_y = u.get_batches(images, labels, 128, 128, 128, 100)
     print(batch_x)
     print(batch_y)
