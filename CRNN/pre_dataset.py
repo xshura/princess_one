@@ -1,4 +1,10 @@
 # _*_ coding:utf-8 _*_
+"""
+模型类
+CNN + LSTM + CTC
+create_time: 2018:/4/15
+creator ：shura
+"""
 import re
 import cv2
 import numpy as np
@@ -142,8 +148,8 @@ def validateName(title):
 
 
 if __name__ == '__main__':
-    # img_dir = "D:\\work\\tianchi\\dataset\\image6001-9000\\"
-    img_dir = "D:\\work\\tianchi\\test\\"
+    img_dir = "D:\\work\\tianchi\\dataset\\image6001-9000\\"
+    # img_dir = "D:\\work\\tianchi\\test\\"
     txt_dir = "D:\\work\\tianchi\\dataset\\txt6001-9000\\"
     save_dir = "D:\\work\\tianchi\\train_set\\"
     pre_image(img_dir, txt_dir, save_dir)

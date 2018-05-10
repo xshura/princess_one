@@ -1,9 +1,10 @@
 """
-模型工具类
+工具类
+create_time: 2018:/5/10
+creator ：shura
 """
 import numpy as np
 from CRNN.keys import alphabet
-from PIL import Image
 import tensorflow as tf
 
 
