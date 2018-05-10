@@ -37,7 +37,7 @@ class Util(object):
     def onehot(self, label_dicts):
         one_hot_labels = []
         for dic in label_dicts:
-            one = [0.0 for _ in range(0, self.maxlength + 1)]
+            one = [0.0 for _ in range(0, self.maxlength)]
             one[dic] = 1.0
             one_hot_labels.append(one)
         return one_hot_labels
@@ -101,7 +101,7 @@ class Util(object):
                                                   num_threads=64,
                                                   capacity=capacity)
         images_batch = tf.cast(image_batch, tf.float32)
-        labels_batch = tf.reshape(label_batch, shape=[batch_size, self.maxlength + 1])
+        labels_batch = tf.reshape(label_batch, shape=[batch_size, self.maxlength])
         return images_batch, labels_batch
 
 
