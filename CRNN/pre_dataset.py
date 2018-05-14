@@ -2,7 +2,7 @@
 """
 模型类
 CNN + LSTM + CTC
-create_time: 2018:/4/15
+create_time: 2018/4/15
 creator ：shura
 """
 import re

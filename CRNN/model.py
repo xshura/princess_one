@@ -1,7 +1,7 @@
 """
 模型类
 CNN + LSTM + CTC
-create_time: 2018:/5/10
+create_time: 2018/5/10
 creator ：shura
 """
 import tensorflow as tf
@@ -9,15 +9,13 @@ from tensorflow.contrib import rnn
 
 
 class Model(object):
-    def __init__(self, learning_rate, hidden_nums, seq_length, num_classes):
+    def __init__(self, hidden_nums, seq_length, num_classes):
         """
         初始化参数：
-        :param learning_rate: 学习率
         :param hidden_nums:  lstm隐藏单元
         :param seq_length:   序列长度
         :param num_classes:  label个数
         """
-        self.learning_rate = learning_rate
         self.seq_length = seq_length
         self.num_class = num_classes
         self.hidden_nums = hidden_nums
@@ -145,15 +143,15 @@ class Model(object):
         relu_7 = tf.nn.relu(conv_7)
         return relu_7
 
-    def map_to_sequence(self, inputdata):
+    def map_to_sequence(self, inputdata, batch_size):
         """
         将经过cnn提取出来的featuremap转换为可以进入lstm的sequence
         :param inputdata:
         :return: output tensor
         """
-        shape = inputdata.get_shape.as_list()
-        assert shape[1] == 1
-        return tf.squeeze(input=inputdata, axis=1)
+        reshaped_cnn_output = tf.reshape(inputdata, [batch_size, -1, 512])
+        shape = inputdata.get_shape().as_list()[1]
+        return reshaped_cnn_output, shape
 
     def BidirectionalLSTM(self, inputdata):
         """
@@ -161,35 +159,34 @@ class Model(object):
         :param inputdata:
         :return:
         """
-        with tf.VariableScope("LSTM_layers"):
-            # 多层网络 论文实现为两层256个隐层单元
-            # 前向cell
-            fw_cell_list = [rnn.BasicLSTMCell(nh, forget_bias=1.0) for nh in [self.hidden_nums, self.hidden_nums]]
-            # 后向 direction cells
-            bw_cell_list = [rnn.BasicLSTMCell(nh, forget_bias=1.0) for nh in [self.hidden_nums, self.hidden_nums]]
+        # 多层网络 论文实现为两层256个隐层单元
+        # 前向cell
+        fw_cell_list = [rnn.BasicLSTMCell(nh, forget_bias=1.0) for nh in [self.hidden_nums, self.hidden_nums]]
+        # 后向 direction cells
+        bw_cell_list = [rnn.BasicLSTMCell(nh, forget_bias=1.0) for nh in [self.hidden_nums, self.hidden_nums]]
 
-            stack_lstm_layer, _, _ = rnn.stack_bidirectional_dynamic_rnn(fw_cell_list, bw_cell_list, inputdata,
-                                                                         dtype=tf.float32)
-            # 添加dropout层
-            stack_lstm_layer = tf.nn.dropout(stack_lstm_layer, keep_prob=0.5, noise_shape=None, name=None)
-            [batch_s, _, hidden_nums] = inputdata.get_shape().as_list()
-            outputs = tf.reshape(stack_lstm_layer, [-1, hidden_nums])
-            weights = tf.get_variable(name='W_out',
-                                shape=[hidden_nums, self.num_class],
-                                dtype=tf.float32,
-                                initializer=tf.glorot_uniform_initializer())  # tf.glorot_normal_initializer
-            bias = tf.get_variable(name='b_out',
-                                shape=[self.num_class],
-                                dtype=tf.float32,
-                                initializer=tf.constant_initializer())
-            # 仿射投影到num_class上
-            # 未进入到softmax之前的概率
-            logits = tf.matmul(outputs, weights) + bias
-            logits = tf.reshape(logits, [batch_s, -1, self.num_class])
-            # 交换batch和轴 转置
-            raw_pred = tf.argmax(tf.nn.softmax(logits), axis=2, name='raw_prediction')
-            logits = tf.transpose(logits, (1, 0, 2))
-            return logits, raw_pred
+        stack_lstm_layer, _, _ = rnn.stack_bidirectional_dynamic_rnn(fw_cell_list, bw_cell_list, inputdata,
+                                                                     sequence_length=self.seq_length, dtype=tf.float32)
+        # 添加dropout层
+        stack_lstm_layer = tf.nn.dropout(stack_lstm_layer, keep_prob=0.5, noise_shape=None, name=None)
+        [batch_s, _, hidden_nums] = inputdata.get_shape().as_list()
+        outputs = tf.reshape(stack_lstm_layer, [-1, hidden_nums])
+        weights = tf.get_variable(name='W_out',
+                                  shape=[hidden_nums, self.num_class],
+                                  dtype=tf.float32,
+                                  initializer=tf.glorot_uniform_initializer())  # tf.glorot_normal_initializer
+        bias = tf.get_variable(name='b_out',
+                               shape=[self.num_class],
+                               dtype=tf.float32,
+                               initializer=tf.constant_initializer())
+        # 仿射投影到num_class上
+        # 未进入到softmax之前的概率
+        logits = tf.matmul(outputs, weights) + bias
+        logits = tf.reshape(logits, [batch_s, -1, self.num_class])
+        # 交换batch和轴 转置
+        raw_pred = tf.argmax(tf.nn.softmax(logits), axis=2, name='raw_prediction')
+        logits = tf.transpose(logits, (1, 0, 2))
+        return logits, raw_pred
 
     def build_model(self, inputdata):
         """
@@ -201,9 +198,9 @@ class Model(object):
         cnn_out = self.cnn_VGG(inputdata)
 
         # 然后将特征映射到序列中
-        sequence = self.map_to_sequence(inputdata=cnn_out)
+        sequence, _ = self.map_to_sequence(inputdata=cnn_out, batch_size=128)
 
-        # 然后通过lstm得到对应的label
+        # 然后通过lstm得到对应的输出
         net_out, raw_pred = self.BidirectionalLSTM(inputdata=sequence)
 
         return net_out, raw_pred

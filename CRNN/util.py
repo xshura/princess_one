@@ -1,9 +1,11 @@
 """
 工具类
-create_time: 2018:/5/10
+create_time: 2018/5/10
 creator ：shura
 """
+import cv2
 import numpy as np
+
 from CRNN.keys import alphabet
 import tensorflow as tf
 
@@ -26,6 +28,10 @@ class Util(object):
         self.decode_maps[SPACE_INDEX] = SPACE_TOKEN
         self.maxlength = len(self.decode_maps)
 
+        images, labels = self.load_labels('labels.txt')
+        self.images = images
+        self.labels = labels
+
     # 序号转换为label
     def decode(self, x):
         return self.decode_maps[x]
@@ -33,6 +39,52 @@ class Util(object):
     # label转换为序号
     def encode(self, x):
         return self.encode_maps[x]
+
+    # label的序列转为稀疏矩阵
+    def seq_to_sparseTensor(self, seq):
+        """
+        indices:二维int64的矩阵，代表非0的坐标点
+        values:二维tensor，代表indice位置的数据值
+        dense_shape:一维，代表稀疏矩阵的大小
+        仍然拿刚才的两个串"12"和"1"做例子，转成的稀疏矩阵应该是
+        indecs = [[0,0],[0,1],[1,0]]
+        values = [1,2,1]
+        dense_shape = [2,2] (两个数字串，最大长度为2)
+        :param seq:
+        :return:
+        """
+        indices = []
+        values = []
+        for n, seq in enumerate(seq):
+            indices.extend(zip([n] * len(seq), range(len(seq))))
+            values.extend(seq)
+        indices = np.asarray(indices, dtype=np.int64)
+        values = np.asarray(values, dtype=np.int32)
+        shape = np.asarray([len(seq), np.asarray(indices).max(0)[1] + 1], dtype=np.int64)
+        return indices, values, shape
+
+    # 将稀疏矩阵转换为label序列
+    def sparseTensor_to_seq(self, sparse_tensor):
+        decoded_indexes = list()
+        current_i = 0
+        current_seq = []
+        for offset, i_and_index in enumerate(sparse_tensor[0]):
+            i = i_and_index[0]
+            if i != current_i: decoded_indexes.append(current_seq)
+            current_i = i
+            current_seq = list()
+            current_seq.append(offset)
+        decoded_indexes.append(current_seq)
+        result = []
+        for index in decoded_indexes: result.append(self.decode_a_seq(index, sparse_tensor))
+        return result
+
+    def decode_a_seq(self, indexes, spars_tensor):
+        decoded = []
+        for m in indexes:
+            str = self.decode_maps[spars_tensor[1][m]]
+            decoded.append(str)
+        return decoded
 
     # one-hot编码
     def onehot(self, label_dicts):
@@ -52,23 +104,26 @@ class Util(object):
         labels_seq = [x[0] for x in labels]
         labels_y = [x[1] for x in labels]
         # 将文字label转换为对应的索引 然后进行onehot编码
-        labels_encode = [self.encode_maps[x[0]] for x in labels_y]
-        labels_onehot = self.onehot(labels_encode)
-        labels_seq = np.asarray(labels_seq, dtype=str)
+        labels_encode = []
+        for label in labels_y:
+            l = [int(self.encode_maps[x]) for x in label]
+            labels_encode.append(l)
+        # 因为ctc要求转化为稀疏矩阵故此处不适用onehot
+        # labels_onehot = self.onehot(labels_encode)
+        # label_path = [ self.img_dir + p + '.jpg' for p in labels_seq]
+        # label_path = np.asarray(label_path, dtype=str)
+        labels_target = labels_encode
         # print(labels_seq)
         # print(labels_onehot)
-        # images = []
-        # # 通过编号获取图像
-        # for p in labels_seq:
-        #     path = self.img_dir + p + '.jpg'
-        #     img = Image.open(path)
-        #     img = np.array(img)
-        #     img = self.convert2gray(img)
-        #     img = img.flatten() / 255
-        #     img = tf.float32(img, 'float')
-        #     images.append(img)
+        images = []
+        # 通过编号获取图像
+        for p in labels_seq:
+            path = self.img_dir + p + '.jpg'
+            img = cv2.imread(path)
+            img = cv2.resize(img, (128, 128))
+            images.append(img)
         # 返回训练集
-        return labels_seq, labels_onehot
+        return images, labels_target
 
     # 图像灰化处理
     def convert2gray(self, img):
@@ -86,30 +141,51 @@ class Util(object):
     def get_batches(self, image, label, resize_w, resize_h, batch_size, capacity):
         # 将images and labels 的列表转换为 tensor 张量
         image = tf.cast(image, tf.string)
-        label = np.asarray(label, dtype=float)
-        label = tf.cast(label, tf.float32)
+        targets = [np.asarray(i) for i in label]
+        # targets转成稀疏矩阵
+        sparse_targets, _, _ = self.seq_to_sparseTensor(targets)
+
+        # 通过tensorflow内置的方法构建数据集
         queue = tf.train.slice_input_producer([image, label])
-        label = queue[1]
+        target = queue[1]
         image_c = tf.read_file(self.img_dir + queue[0] + '.jpg')
         image = tf.image.decode_jpeg(image_c, channels=3)
         # resize
         image = tf.image.resize_image_with_crop_or_pad(image, resize_w, resize_h)
-        # (x - mean) / adjusted_stddev
+        # (x - mean) / adjusted_stddev 标准差
         image = tf.image.per_image_standardization(image)
-
-        image_batch, label_batch = tf.train.batch([image, label],
+        # 获取tensorflow处理后的batch
+        image_batch, label_batch = tf.train.batch([image, target],
                                                   batch_size=batch_size,
                                                   num_threads=64,
                                                   capacity=capacity)
         images_batch = tf.cast(image_batch, tf.float32)
-        labels_batch = tf.reshape(label_batch, shape=[batch_size, self.maxlength])
+        labels_batch = tf.reshape(label_batch, shape=[batch_size, 1])
         return images_batch, labels_batch
+
+    # 获取下一组batch的训练数据
+    def get_next_batch(self, batch_size):
+        inputs = np.zeros(shape=[batch_size, 128, 128, 3], dtype=float)
+        if (batch_size+self.START_INDEX) >= len(self.labels):
+            inputs = np.zeros(shape=[len(self.labels)-self.START_INDEX, 128, 128, 3], dtype=float)
+        targets = []
+        for i in range(batch_size):
+            if (self.START_INDEX + i) >= len(self.labels): break
+            inputs[i, :] = self.images[self.START_INDEX+i].reshape((128, 128, 3))
+            targets.append(self.labels[self.START_INDEX+i])
+        self.START_INDEX += batch_size
+
+        labels = [np.asarray(i) for i in targets]
+        # targets转成稀疏矩阵
+        sparse_targets = self.seq_to_sparseTensor(labels)
+        # (batch_size,) sequence_length值都是256，最大划分列数
+        seq_len = np.ones(inputs.shape[0]) * 128
+        return inputs, sparse_targets, seq_len
 
 
 if __name__ == '__main__':
     u = Util()
     # u.load_labels('labels.txt')
-    images, labels = u.load_labels('labels.txt')
-    batch_x, batch_y = u.get_batches(images, labels, 128, 128, 128, 100)
-    print(batch_x)
-    print(batch_y)
+    batch_x, batch_y, seq_len = u.get_next_batch(batch_size=128)
+    print(batch_x[0])
+    print(batch_y[0])
