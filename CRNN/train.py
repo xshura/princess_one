@@ -17,6 +17,7 @@ decay_rate = 0.98
 beta1 = 0.9
 beta2 = 0.999
 REPORT_STEPS = 100
+BATCHES = 10
 
 
 def ctc_loss(logits, labels, seq_len):
@@ -72,19 +73,21 @@ def train():
     # 还有一种贪心策略是只找概率最大那个，也就是K=1的情况ctc_ greedy_decoder
     dense_decoded = tf.sparse_tensor_to_dense(decoded[0], default_value=-1)
     acc = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), labels))
-    # 初始化变量
-    init = tf.global_variables_initializer()
-    global_step = tf.Variable(0, trainable=False)
 
     with tf.Session() as sess:
+        global_step = tf.Variable(0, trainable=False)
+        # 初始化变量
+        init = tf.global_variables_initializer()
         sess.run(init)
         saver = tf.train.Saver(tf.global_variables(), max_to_keep=100)
         for i in range(EPOCH_NUM):
-            print("Epoch.......", i)
             train_cost = train_ler = 0
-            train_inputs, train_targets, train_seq_len = u.get_next_batch(BATCH_SIZE)
+            train_inputs, train_targets, train_seq_len = u.get_next_batch(18)
             val_feed = {inputs: train_inputs, labels: train_targets, seq_len: train_seq_len}
-            val_cost, val_ler, steps = sess.run([loss, acc, global_step], feed_dict=val_feed)
+            val_cost, val_ler, steps, _ = sess.run([loss, acc, global_step, optimizer], feed_dict=val_feed)
+            print("Epoch.......", i)
+            if i % 10 == 0:
+                saver.save(sess, "./models/crnn.ckpt", global_step=steps)
             log = "Epoch {}/{}, steps = {}, train_cost = {:.3f}, train_ler = {:.3f}, val_cost = {:.3f}, val_ler = {:.3f}"
             print(log.format(i + 1, EPOCH_NUM, steps, train_cost, train_ler, val_cost, val_ler))
 

@@ -3,6 +3,8 @@
 create_time: 2018/5/10
 creator ：shura
 """
+import random
+
 import cv2
 import numpy as np
 
@@ -121,6 +123,7 @@ class Util(object):
             path = self.img_dir + p + '.jpg'
             img = cv2.imread(path)
             img = cv2.resize(img, (128, 128))
+            img = img / 255
             images.append(img)
         # 返回训练集
         return images, labels_target
@@ -166,20 +169,24 @@ class Util(object):
     # 获取下一组batch的训练数据
     def get_next_batch(self, batch_size):
         inputs = np.zeros(shape=[batch_size, 128, 128, 3], dtype=float)
-        if (batch_size+self.START_INDEX) >= len(self.labels):
-            inputs = np.zeros(shape=[len(self.labels)-self.START_INDEX, 128, 128, 3], dtype=float)
+        # if (batch_size+self.START_INDEX) >= len(self.labels):
+        #     inputs = np.zeros(shape=[len(self.labels)-self.START_INDEX, 128, 128, 3], dtype=float)
         targets = []
+        # 改为有放回的取出样本
         for i in range(batch_size):
-            if (self.START_INDEX + i) >= len(self.labels): break
-            inputs[i, :] = self.images[self.START_INDEX+i].reshape((128, 128, 3))
-            targets.append(self.labels[self.START_INDEX+i])
-        self.START_INDEX += batch_size
-
+            j = random.randint(0, len(self.images)-1)
+            inputs[i, :] = self.images[j].reshape((128, 128, 3))
+            targets.append(self.labels[j])
+        # for i in range(batch_size):
+        #     if (self.START_INDEX + i) >= len(self.labels): break
+        #     inputs[i, :] = self.images[self.START_INDEX+i].reshape((128, 128, 3))
+        #     targets.append(self.labels[self.START_INDEX+i])
+        # self.START_INDEX += batch_size
         labels = [np.asarray(i) for i in targets]
         # targets转成稀疏矩阵
         sparse_targets = self.seq_to_sparseTensor(labels)
         # (batch_size,) sequence_length值都是256，最大划分列数
-        seq_len = np.ones(inputs.shape[0]) * 128
+        seq_len = np.ones(inputs.shape[0]) * self.IMAGE_HEIGHT
         return inputs, sparse_targets, seq_len
 
 
