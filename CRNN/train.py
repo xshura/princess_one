@@ -1,13 +1,12 @@
 import tensorflow as tf
-import time
 
 from CRNN.model import Model
 from CRNN.util import Util
 
-IMAGE_HEIGHT = 128
-IMAGE_WIDTH = 128
+IMAGE_HEIGHT = 64
+IMAGE_WIDTH = 256
 BATCH_SIZE = 1
-EPOCH_NUM = 100000
+EPOCH_NUM = 10000
 # 初始化学习率
 init_learning_rate = 0.01
 # 衰变学习率参数
@@ -68,10 +67,11 @@ def train():
     loss = ctc_loss(labels=labels, logits=logits, seq_len=seq_len)
     optimizer = optimizer_op(loss)
 
+    # 划分块之后找每块的类属概率分布，ctc_beam_search_decoder方法,是每次找最大的K个概率分布
     decoded, log_prob = tf.nn.ctc_beam_search_decoder(logits, seq_len, merge_repeated=False)
-    # 前面说的划分块之后找每块的类属概率分布，ctc_beam_search_decoder方法,是每次找最大的K个概率分布
     # 还有一种贪心策略是只找概率最大那个，也就是K=1的情况ctc_ greedy_decoder
-    dense_decoded = tf.sparse_tensor_to_dense(decoded[0], default_value=-1)
+    # dense_decoded = tf.sparse_tensor_to_dense(decoded[0], default_value=-1)
+    # 计算两个序列之间的Levenshtein 距离
     acc = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), labels))
 
     with tf.Session() as sess:
@@ -82,14 +82,15 @@ def train():
         saver = tf.train.Saver(tf.global_variables(), max_to_keep=100)
         for i in range(EPOCH_NUM):
             train_cost = train_ler = 0
-            train_inputs, train_targets, train_seq_len = u.get_next_batch(18)
+            train_inputs, train_targets, train_seq_len = u.get_next_batch(5)
             val_feed = {inputs: train_inputs, labels: train_targets, seq_len: train_seq_len}
             val_cost, val_ler, steps, _ = sess.run([loss, acc, global_step, optimizer], feed_dict=val_feed)
             print("Epoch.......", i)
-            if i % 10 == 0:
+            if i % 10 == 0 or i == 0 or i > 1:
                 saver.save(sess, "./models/crnn.ckpt", global_step=steps)
-            log = "Epoch {}/{}, steps = {}, train_cost = {:.3f}, train_ler = {:.3f}, val_cost = {:.3f}, val_ler = {:.3f}"
+            log = "Epoch {}/{}, steps = {}, train_cost = {:.3f}, train_ler = {:.3f}, val_cost = {:.3f}, edit_distance = {:.3f}"
             print(log.format(i + 1, EPOCH_NUM, steps, train_cost, train_ler, val_cost, val_ler))
+        saver.save(sess, "./models/crnn.ckpt")
 
 
 if __name__ == '__main__':

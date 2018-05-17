@@ -15,8 +15,8 @@ import tensorflow as tf
 class Util(object):
     def __init__(self):
         self.img_dir = "D:\\work\\tianchi\\train_set\\"
-        self.IMAGE_HEIGHT = 128
-        self.IMAGE_WIDTH = 128
+        self.IMAGE_HEIGHT = 64
+        self.IMAGE_WIDTH = 256
         self.START_INDEX = 0
         self.encode_maps = {}
         self.decode_maps = {}
@@ -122,8 +122,9 @@ class Util(object):
         for p in labels_seq:
             path = self.img_dir + p + '.jpg'
             img = cv2.imread(path)
-            img = cv2.resize(img, (128, 128))
-            img = img / 255
+            if img.shape[1] < img.shape[0]:
+                img = np.rot90(img)
+            img = cv2.resize(img, (self.IMAGE_WIDTH, self.IMAGE_HEIGHT))
             images.append(img)
         # 返回训练集
         return images, labels_target
@@ -168,25 +169,26 @@ class Util(object):
 
     # 获取下一组batch的训练数据
     def get_next_batch(self, batch_size):
-        inputs = np.zeros(shape=[batch_size, 128, 128, 3], dtype=float)
+        inputs = np.zeros(shape=[batch_size, self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 3], dtype=float)
         # if (batch_size+self.START_INDEX) >= len(self.labels):
         #     inputs = np.zeros(shape=[len(self.labels)-self.START_INDEX, 128, 128, 3], dtype=float)
         targets = []
         # 改为有放回的取出样本
-        for i in range(batch_size):
-            j = random.randint(0, len(self.images)-1)
-            inputs[i, :] = self.images[j].reshape((128, 128, 3))
-            targets.append(self.labels[j])
         # for i in range(batch_size):
-        #     if (self.START_INDEX + i) >= len(self.labels): break
-        #     inputs[i, :] = self.images[self.START_INDEX+i].reshape((128, 128, 3))
-        #     targets.append(self.labels[self.START_INDEX+i])
-        # self.START_INDEX += batch_size
+        #     j = random.randint(0, len(self.images)-1)
+        #     inputs[i, :] = self.images[j].reshape((128, 128, 3))
+        #     targets.append(self.labels[j])
+        for i in range(batch_size):
+            if (self.START_INDEX + i) >= len(self.labels):
+                self.START_INDEX = 0
+            inputs[i, :] = self.images[self.START_INDEX+1].reshape((self.IMAGE_WIDTH, self.IMAGE_HEIGHT, 3)).transpose((1, 0, 2))
+            targets.append(self.labels[self.START_INDEX+1])
+            self.START_INDEX += 1
         labels = [np.asarray(i) for i in targets]
         # targets转成稀疏矩阵
         sparse_targets = self.seq_to_sparseTensor(labels)
         # (batch_size,) sequence_length值都是256，最大划分列数
-        seq_len = np.ones(inputs.shape[0]) * self.IMAGE_HEIGHT
+        seq_len = np.ones(inputs.shape[0]) * self.IMAGE_WIDTH
         return inputs, sparse_targets, seq_len
 
 

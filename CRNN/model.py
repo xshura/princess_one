@@ -165,8 +165,7 @@ class Model(object):
         # 后向 direction cells
         bw_cell_list = [rnn.BasicLSTMCell(nh, forget_bias=1.0) for nh in [self.hidden_nums, self.hidden_nums]]
 
-        stack_lstm_layer, _, _ = rnn.stack_bidirectional_dynamic_rnn(fw_cell_list, bw_cell_list, inputdata,
-                                                                     sequence_length=self.seq_length, dtype=tf.float32)
+        stack_lstm_layer, _, _ = rnn.stack_bidirectional_dynamic_rnn(fw_cell_list, bw_cell_list, inputdata, dtype=tf.float32)
         # 添加dropout层
         stack_lstm_layer = tf.nn.dropout(stack_lstm_layer, keep_prob=0.5, noise_shape=None, name=None)
         [batch_s, _, hidden_nums] = inputdata.get_shape().as_list()
@@ -198,7 +197,7 @@ class Model(object):
         cnn_out = self.cnn_VGG(inputdata)
 
         # 然后将特征映射到序列中
-        sequence, _ = self.map_to_sequence(inputdata=cnn_out, batch_size=18)
+        sequence, _ = self.map_to_sequence(inputdata=cnn_out, batch_size=5)
 
         # 然后通过lstm得到对应的输出
         net_out, raw_pred = self.BidirectionalLSTM(inputdata=sequence)
