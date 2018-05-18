@@ -6,7 +6,6 @@ creator ：shura
 """
 import tensorflow as tf
 from tensorflow.contrib import rnn
-from CRNN.train import BATCH_SIZE
 
 
 class Model(object):
@@ -198,7 +197,7 @@ class Model(object):
         cnn_out = self.cnn_VGG(inputdata)
 
         # 然后将特征映射到序列中
-        sequence, _ = self.map_to_sequence(inputdata=cnn_out, batch_size=BATCH_SIZE)
+        sequence, _ = self.map_to_sequence(inputdata=cnn_out, batch_size=5)
 
         # 然后通过lstm得到对应的输出
         net_out, raw_pred = self.BidirectionalLSTM(inputdata=sequence)

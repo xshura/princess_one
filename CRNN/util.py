@@ -104,7 +104,10 @@ class Util(object):
         labels = [s.strip() for s in labels]
         labels = [s.split() for s in labels]
         labels_seq = [x[0] for x in labels]
-        labels_y = [x[1] for x in labels]
+        labels_y = []
+        for x in labels:
+            if len(x) < 2: print(x)
+            labels_y.append(x[1])
         # 将文字label转换为对应的索引 然后进行onehot编码
         labels_encode = []
         for label in labels_y:
@@ -190,6 +193,31 @@ class Util(object):
         # (batch_size,) sequence_length值都是256，最大划分列数
         seq_len = np.ones(inputs.shape[0]) * self.IMAGE_WIDTH
         return inputs, sparse_targets, seq_len
+
+
+def sparseTensor_to_seq(sparse_tensor):
+    decoded_indexes = list()
+    current_i = 0
+    current_seq = []
+    for offset, i_and_index in enumerate(sparse_tensor[0]):
+        i = i_and_index[0]
+        if i != current_i: decoded_indexes.append(current_seq)
+        current_i = i
+        current_seq = list()
+        current_seq.append(offset)
+    decoded_indexes.append(current_seq)
+    result = []
+    for index in decoded_indexes: result.append(decode_a_seq(index, sparse_tensor))
+    return result
+
+
+def decode_a_seq(indexes, spars_tensor):
+    decoded = []
+    for m in indexes:
+        u = Util()
+        str = u.decode_maps[spars_tensor[1][m]]
+        decoded.append(str)
+    return decoded
 
 
 if __name__ == '__main__':

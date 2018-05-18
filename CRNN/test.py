@@ -64,16 +64,17 @@ def rotate(image, angle, center=None, scale=1.0):
     # 返回旋转后的图像
     return rotated
 
-path = "D:\\work\\tianchi\\train_set\\00000.jpg"
-img = cv2.imread(path)
-# if img.shape[0] > 128:
-#     width = 128
-#     if img.shape[1] > 128:
-#         height = 128
 
-img90=np.rot90(img)
-img = cv2.resize(img90, (128, 32))
+def testimg():
+    path = "D:\\work\\tianchi\\train_set\\00000.jpg"
+    img = cv2.imread(path)
+    # if img.shape[0] > 128:
+    #     width = 128
+    #     if img.shape[1] > 128:
+    #         height = 128
 
-cv2.imshow("image", img)
+    img90=np.rot90(img)
+    img = cv2.resize(img90, (128, 32))
 
-cv2.waitKey(0)
+    cv2.imshow("image", img)
+    cv2.waitKey(0)

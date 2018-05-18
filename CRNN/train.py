@@ -2,7 +2,12 @@ import cv2
 import tensorflow as tf
 import numpy as np
 from CRNN.model import Model
-from CRNN.util import Util
+from CRNN.util import Util, sparseTensor_to_seq
+import os
+
+# 使用第一块GPU进行训练
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
 
 GPU_MEMORY_FRACTION = 0.85 # gpu内存
 IMAGE_HEIGHT = 64
@@ -92,7 +97,7 @@ def train():
             val_feed = {inputs: train_inputs, labels: train_targets, seq_len: train_seq_len}
             val_cost, val_ler, steps, _ = sess.run([loss, acc, global_step, optimizer], feed_dict=val_feed)
             print("Epoch.......", i)
-            if i % 10 == 0 or i == 0 or i > 1:
+            if i % 10 == 0:
                 u = Util()
                 test_inputs, test_targets, test_seq_len = u.get_next_batch(BATCH_SIZE)
                 test_feed = {inputs: test_inputs,
@@ -109,9 +114,8 @@ def train():
 
 # 计算准确率
 def report_accuracy(decoded_list, test_targets):
-    u = Util
-    original_list = u.sparseTensor_to_seq(test_targets)
-    detected_list = u.sparseTensor_to_seq(decoded_list)
+    original_list = sparseTensor_to_seq(test_targets)
+    detected_list = sparseTensor_to_seq(decoded_list)
     true_numer = 0
     if len(original_list) != len(detected_list):
         print("len(original_list)", len(original_list), "len(detected_list)", len(detected_list), " test and detect length desn't match")
@@ -152,8 +156,8 @@ def evaluate(img_dir):
 
 
 if __name__ == '__main__':
-    # train()
-    evaluate("D:\\work\\tianchi\\train_set\\00000.jpg")
+    train()
+    # evaluate("D:\\work\\tianchi\\train_set\\00000.jpg")
 
 
 
