@@ -99,16 +99,33 @@ def train():
         saver.save(sess, "./models/crnn.ckpt")
 
 
+# 计算准确率
+def report_accuracy(decoded_list, test_targets):
+    u = Util
+    original_list = u.sparseTensor_to_seq(test_targets)
+    detected_list = u.sparseTensor_to_seq(decoded_list)
+    true_numer = 0
+    if len(original_list) != len(detected_list):
+        print("len(original_list)", len(original_list), "len(detected_list)", len(detected_list), " test and detect length desn't match")
+        return \
+    print("T/F: original(length) <-------> detectcted(length)")
+    for idx, number in enumerate(original_list):
+        detect_number = detected_list[idx]
+        hit = (number == detect_number)
+        print(hit, number, "(", len(number), ") <-------> ", detect_number, "(", len(detect_number), ")")
+        if hit: true_numer = true_numer + 1
+    print("Test Accuracy:", true_numer * 1.0 / len(original_list))
+
+
 # 评估函数
-def evaluate(self, img_dir):
+def evaluate(img_dir):
     with tf.Session() as sess:
         img = cv2.imread(img_dir)
         if img.shape[1] < img.shape[0]:
             img = np.rot90(img)
-        img = cv2.resize(img, (self.IMAGE_WIDTH, self.IMAGE_HEIGHT))
-        # 读取
-        saver = tf.train.Saver()
-        saver.restore(sess, save_path='./model/crnn.ckpt')
+        img = cv2.resize(img, (IMAGE_WIDTH, IMAGE_HEIGHT))
+        cv2.imshow("img", img)
+        cv2.waitKey(0)
         u = Util()
         # image输入
         inputs = tf.placeholder(tf.float32, [None, IMAGE_HEIGHT, IMAGE_WIDTH, 3])
@@ -118,14 +135,17 @@ def evaluate(self, img_dir):
         logits, raw_pred = model.build_model(inputs)
         # 划分块之后找每块的类属概率分布，ctc_beam_search_decoder方法,是每次找最大的K个概率分布
         decoded, log_prob = tf.nn.ctc_beam_search_decoder(logits, seq_len, merge_repeated=False)
-        # 还有一种贪心策略是只找概率最大那个，也就是K=1的情况ctc_ greedy_decoder
-        dense_decoded = tf.sparse_tensor_to_dense(decoded[0], default_value=-1)
-        predint = dense_decoded.eval(feed_dict={input: img}, session=sess)
-        print(predint)
+        # 恢复模型
+        saver = tf.train.Saver()
+        saver.restore(sess, save_path='./model/crnn.ckpt')
+        dd, log_probs = sess.run([decoded[0], log_prob], feed_dict={input: inputs})
+        seq = u.sparseTensor_to_seq(dd)
+        print(seq)
+
 
 if __name__ == '__main__':
-    train()
-
+    # train()
+    evaluate("D:\\work\\tianchi\\train_set\\00000.jpg")
 
 
 
