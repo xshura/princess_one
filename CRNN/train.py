@@ -1,8 +1,10 @@
+import cv2
 import tensorflow as tf
-
+import numpy as np
 from CRNN.model import Model
 from CRNN.util import Util
 
+GPU_MEMORY_FRACTION = 0.85 # gpu内存
 IMAGE_HEIGHT = 64
 IMAGE_WIDTH = 256
 BATCH_SIZE = 1
@@ -73,8 +75,12 @@ def train():
     # dense_decoded = tf.sparse_tensor_to_dense(decoded[0], default_value=-1)
     # 计算两个序列之间的Levenshtein 距离
     acc = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), labels))
+    # 配置gpu训练参数
+    sess_config = tf.ConfigProto()
+    sess_config.gpu_options.per_process_gpu_memory_fraction = GPU_MEMORY_FRACTION
+    sess_config.gpu_options.allow_growth = True
 
-    with tf.Session() as sess:
+    with tf.Session(config=sess_config) as sess:
         global_step = tf.Variable(0, trainable=False)
         # 初始化变量
         init = tf.global_variables_initializer()
@@ -92,6 +98,30 @@ def train():
             print(log.format(i + 1, EPOCH_NUM, steps, train_cost, train_ler, val_cost, val_ler))
         saver.save(sess, "./models/crnn.ckpt")
 
+
+# 评估函数
+def evaluate(self, img_dir):
+    with tf.Session() as sess:
+        img = cv2.imread(img_dir)
+        if img.shape[1] < img.shape[0]:
+            img = np.rot90(img)
+        img = cv2.resize(img, (self.IMAGE_WIDTH, self.IMAGE_HEIGHT))
+        # 读取
+        saver = tf.train.Saver()
+        saver.restore(sess, save_path='./model/crnn.ckpt')
+        u = Util()
+        # image输入
+        inputs = tf.placeholder(tf.float32, [None, IMAGE_HEIGHT, IMAGE_WIDTH, 3])
+        seq_len = tf.placeholder(tf.int32, [None])
+        # 获取模型
+        model = Model(hidden_nums=256, seq_length=seq_len, num_classes=u.maxlength)
+        logits, raw_pred = model.build_model(inputs)
+        # 划分块之后找每块的类属概率分布，ctc_beam_search_decoder方法,是每次找最大的K个概率分布
+        decoded, log_prob = tf.nn.ctc_beam_search_decoder(logits, seq_len, merge_repeated=False)
+        # 还有一种贪心策略是只找概率最大那个，也就是K=1的情况ctc_ greedy_decoder
+        dense_decoded = tf.sparse_tensor_to_dense(decoded[0], default_value=-1)
+        predint = dense_decoded.eval(feed_dict={input: img}, session=sess)
+        print(predint)
 
 if __name__ == '__main__':
     train()
