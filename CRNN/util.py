@@ -103,11 +103,18 @@ class Util(object):
         # labels = "小帅是神！Yeah"
         labels = [s.strip() for s in labels]
         labels = [s.split() for s in labels]
-        labels_seq = [x[0] for x in labels]
+        labels_seq = []
         labels_y = []
         for x in labels:
-            if len(x) < 2: print(x)
-            labels_y.append(x[1])
+            # 如果数据畸形就丢弃掉
+            if len(x) < 2: continue
+            labels_seq.append(x[0])
+            l = x[1]
+            # 判断如果大于两位就把后面的连接在一起作为label
+            if len(x) > 2:
+                for i in range(2,len(x)):
+                    l += i
+            labels_y.append(l)
         # 将文字label转换为对应的索引 然后进行onehot编码
         labels_encode = []
         for label in labels_y:

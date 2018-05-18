@@ -78,3 +78,5 @@ def testimg():
 
     cv2.imshow("image", img)
     cv2.waitKey(0)
+for x in range(1,9):
+    print(x)

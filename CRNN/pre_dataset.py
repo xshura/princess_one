@@ -123,6 +123,9 @@ def pre_image(img_dir, txt_dir, save_dir):
                         cv2.imencode(".jpg", target)[1].tofile(save_path)
                     except Exception:
                         print(filepath+"下的"+sites[8]+"Exception异常！！")
+                        value = '\n'
+                        value.encode("utf-8")
+                        labelfile.write(value)
                         continue
                     except FileNotFoundError:
                         print(filepath+"下的"+sites[8]+"出现文件找不到异常！！")
