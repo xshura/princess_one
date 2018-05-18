@@ -1,8 +1,7 @@
 import cv2
 import tensorflow as tf
-import numpy as np
 from CRNN.model import Model
-from CRNN.util import Util, sparseTensor_to_seq
+from CRNN.util import Util, sparseTensor_to_seq, Test
 import os
 
 # 使用第一块GPU进行训练
@@ -105,10 +104,10 @@ def train():
                              seq_len: test_seq_len}
                 dd, log_probs, accuracy = sess.run([decoded[0], log_prob, acc], test_feed)
                 report_accuracy(dd, test_targets)
-                saver.save(sess, "./models/crnn.model", global_step=steps)
-            log = "Epoch {}/{}, steps = {}, train_cost = {:.3f}, train_ler = {:.3f}, val_cost = {:.3f}, edit_distance = {:.3f}"
-            print(log.format(i + 1, EPOCH_NUM, steps, train_cost, train_ler, val_cost, val_ler))
-        saver.save(sess, "./models/crnn.model")
+                saver.save(sess, "./models/crnn.ckpt", global_step=steps)
+            log = "Epoch {}/{}, val_cost = {:.3f}, edit_distance = {:.3f}"
+            print(log.format(i + 1, EPOCH_NUM, val_cost, val_ler))
+        saver.save(sess, "./models/crnn.ckpt")
         print("训练完成！！")
 
 
@@ -130,14 +129,9 @@ def report_accuracy(decoded_list, test_targets):
 
 
 # 评估函数
-def evaluate(img_dir):
+def evaluate(img_dir, batch_size):
     with tf.Session() as sess:
-        img = cv2.imread(img_dir)
-        if img.shape[1] < img.shape[0]:
-            img = np.rot90(img)
-        img = cv2.resize(img, (IMAGE_WIDTH, IMAGE_HEIGHT))
-        cv2.imshow("img", img)
-        cv2.waitKey(0)
+        t = Test(256, 64, batch_size, "D:\\work\\tianchi\\train_set\\")
         u = Util()
         # image输入
         inputs = tf.placeholder(tf.float32, [None, IMAGE_HEIGHT, IMAGE_WIDTH, 3])
@@ -149,15 +143,32 @@ def evaluate(img_dir):
         decoded, log_prob = tf.nn.ctc_beam_search_decoder(logits, seq_len, merge_repeated=False)
         # 恢复模型
         saver = tf.train.Saver()
-        saver.restore(sess, save_path='./model/crnn.model')
-        dd, log_probs = sess.run([decoded[0], log_prob], feed_dict={inputs: inputs})
-        seq = u.sparseTensor_to_seq(dd)
-        print(seq)
+        saver.restore(sess, './models/./crnn.ckpt-0')
+        epochs = t.nums // batch_size + 1
+        for epoch in range(epochs):
+            names, imgs, seq_length = t.get_test_batch()
+            dd, log_probs = sess.run([decoded[0], log_prob], feed_dict={inputs: imgs, seq_len: seq_length})
+            seq = sparseTensor_to_seq(dd)
+            save_result(names, seq)
+            print(seq)
+
+
+def save_result(names,seqs):
+    labelfile = open('result.txt', 'a')
+    for i, name in enumerate(names):
+        value = name + ' ' + seqs[i] + '\n'
+        value.encode("utf-8")
+        labelfile.write(value)
+    labelfile.close()
+    print("成功保存一个batch！")
 
 
 if __name__ == '__main__':
     train()
-    # evaluate("D:\\work\\tianchi\\train_set\\00000.jpg")
+    # evaluate("D:\\work\\tianchi\\train_set", 5)
+    # n = ["1", "3", "5"]
+    # v = ['a', 'b', 'c']
+    # save_result(n,v)
 
 
 

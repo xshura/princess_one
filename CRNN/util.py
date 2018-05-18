@@ -3,13 +3,13 @@
 create_time: 2018/5/10
 creator ：shura
 """
-import random
-
+import os
 import cv2
 import numpy as np
 
 from CRNN.keys import alphabet
 import tensorflow as tf
+
 
 
 class Util(object):
@@ -25,7 +25,7 @@ class Util(object):
             self.decode_maps[i] = char
 
         SPACE_INDEX = 0
-        SPACE_TOKEN = ''
+        SPACE_TOKEN = ' '
         self.encode_maps[SPACE_TOKEN] = SPACE_INDEX
         self.decode_maps[SPACE_INDEX] = SPACE_TOKEN
         self.maxlength = len(self.decode_maps)
@@ -191,8 +191,8 @@ class Util(object):
         for i in range(batch_size):
             if (self.START_INDEX + i) >= len(self.labels):
                 self.START_INDEX = 0
-            inputs[i, :] = self.images[self.START_INDEX+1].reshape((self.IMAGE_WIDTH, self.IMAGE_HEIGHT, 3)).transpose((1, 0, 2))
-            targets.append(self.labels[self.START_INDEX+1])
+            inputs[i, :] = self.images[self.START_INDEX].reshape((self.IMAGE_WIDTH, self.IMAGE_HEIGHT, 3)).transpose((1, 0, 2))
+            targets.append(self.labels[self.START_INDEX])
             self.START_INDEX += 1
         labels = [np.asarray(i) for i in targets]
         # targets转成稀疏矩阵
@@ -203,33 +203,76 @@ class Util(object):
 
 
 def sparseTensor_to_seq(sparse_tensor):
-    decoded_indexes = list()
+    decoded_indexes = sparse_tensor[0]
+    values = sparse_tensor[1]
     current_i = 0
-    current_seq = []
-    for offset, i_and_index in enumerate(sparse_tensor[0]):
-        i = i_and_index[0]
-        if i != current_i: decoded_indexes.append(current_seq)
-        current_i = i
-        current_seq = list()
-        current_seq.append(offset)
-    decoded_indexes.append(current_seq)
+    current_seq = ""
     result = []
-    for index in decoded_indexes: result.append(decode_a_seq(index, sparse_tensor))
+    u = Util()
+    for i, index in enumerate(decoded_indexes):
+        value = u.decode_maps[values[i]]
+        if index[0] == current_i:
+            current_seq += value
+        else:
+            result.append(current_seq)
+            current_seq = ""
+            current_i = index[0]
+            current_seq += value
+    result.append(current_seq)
     return result
 
 
-def decode_a_seq(indexes, spars_tensor):
-    decoded = []
-    for m in indexes:
-        u = Util()
-        str = u.decode_maps[spars_tensor[1][m]]
-        decoded.append(str)
-    return decoded
+class Test():
+    def __init__(self, IMAGE_WIDTH, IMAGE_HEIGHT, batch_size, dir):
+        self.START_INDEX_TEST = 0
+        self.IMAGE_WIDTH = IMAGE_WIDTH
+        self.IMAGE_HEIGHT = IMAGE_HEIGHT
+        self.batch_size = batch_size
+        self.dir = dir
+        self.names = []
+        self.images = []
+        for root, dirs, files in os.walk(self.dir):
+            for file in files:
+                self.names.append(file)
+                filepath = os.path.join(root, file)
+                img = cv2.imread(filepath)
+                if img.shape[1] < img.shape[0]:
+                    img = np.rot90(img)
+                img = cv2.resize(img, (self.IMAGE_WIDTH, self.IMAGE_HEIGHT))
+                self.images.append(img)
+        self.nums = len(self.names)
 
+    def get_test_batch(self):
+        names = []
+        file_path = []
+        inputs = np.zeros(shape=[self.batch_size, self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 3], dtype=float)
+        for i in range(self.batch_size):
+            if self.START_INDEX_TEST >= len(self.images):
+                self.START_INDEX_TEST = 0
+                inputs[i, :] = self.images[self.START_INDEX_TEST].reshape((self.IMAGE_WIDTH, self.IMAGE_HEIGHT, 3)).transpose((1, 0, 2))
+                file_path.append(names[self.START_INDEX_TEST])
+            else:
+                inputs[i, :] = self.images[self.START_INDEX_TEST].reshape((self.IMAGE_WIDTH, self.IMAGE_HEIGHT, 3)).transpose((1, 0, 2))
+                file_path.append(names[self.START_INDEX_TEST])
+                self.START_INDEX_TEST += 1
+        # (batch_size,) sequence_length值都是256，最大划分列数
+        seq_len = np.ones(inputs.shape[0]) * self.IMAGE_WIDTH
+        return file_path, inputs, seq_len
 
 if __name__ == '__main__':
     u = Util()
+    # t = Test(256, 64, 5, "D:\\work\\tianchi\\train_set\\")
+    # inputs, seq_len = t.get_test_batch()
+    # print(input)
     # u.load_labels('labels.txt')
-    batch_x, batch_y, seq_len = u.get_next_batch(batch_size=128)
-    print(batch_x[0])
-    print(batch_y[0])
+    # batch_x, batch_y, seq_len = u.get_next_batch(batch_size=128)
+    # print(batch_x[0])
+    # print(batch_y[0])
+    str = ["我是好人", "小帅是大神"]
+    labels_encode = []
+    for label in str:
+        l = [int(u.encode_maps[x]) for x in label]
+        labels_encode.append(l)
+    sparse = u.seq_to_sparseTensor(labels_encode)
+    seq = sparseTensor_to_seq(sparse)
+    print(seq)
