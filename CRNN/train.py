@@ -7,7 +7,7 @@ from CRNN.util import Util
 GPU_MEMORY_FRACTION = 0.85 # gpu内存
 IMAGE_HEIGHT = 64
 IMAGE_WIDTH = 256
-BATCH_SIZE = 1
+BATCH_SIZE = 5
 EPOCH_NUM = 10000
 # 初始化学习率
 init_learning_rate = 0.01
@@ -88,15 +88,23 @@ def train():
         saver = tf.train.Saver(tf.global_variables(), max_to_keep=100)
         for i in range(EPOCH_NUM):
             train_cost = train_ler = 0
-            train_inputs, train_targets, train_seq_len = u.get_next_batch(5)
+            train_inputs, train_targets, train_seq_len = u.get_next_batch(BATCH_SIZE)
             val_feed = {inputs: train_inputs, labels: train_targets, seq_len: train_seq_len}
             val_cost, val_ler, steps, _ = sess.run([loss, acc, global_step, optimizer], feed_dict=val_feed)
             print("Epoch.......", i)
             if i % 10 == 0 or i == 0 or i > 1:
-                saver.save(sess, "./models/crnn.ckpt", global_step=steps)
+                u = Util()
+                test_inputs, test_targets, test_seq_len = u.get_next_batch(BATCH_SIZE)
+                test_feed = {inputs: test_inputs,
+                             labels: test_targets,
+                             seq_len: test_seq_len}
+                dd, log_probs, accuracy = sess.run([decoded[0], log_prob, acc], test_feed)
+                report_accuracy(dd, test_targets)
+                saver.save(sess, "./models/crnn.model", global_step=steps)
             log = "Epoch {}/{}, steps = {}, train_cost = {:.3f}, train_ler = {:.3f}, val_cost = {:.3f}, edit_distance = {:.3f}"
             print(log.format(i + 1, EPOCH_NUM, steps, train_cost, train_ler, val_cost, val_ler))
-        saver.save(sess, "./models/crnn.ckpt")
+        saver.save(sess, "./models/crnn.model")
+        print("训练完成！！")
 
 
 # 计算准确率
@@ -137,8 +145,8 @@ def evaluate(img_dir):
         decoded, log_prob = tf.nn.ctc_beam_search_decoder(logits, seq_len, merge_repeated=False)
         # 恢复模型
         saver = tf.train.Saver()
-        saver.restore(sess, save_path='./model/crnn.ckpt')
-        dd, log_probs = sess.run([decoded[0], log_prob], feed_dict={input: inputs})
+        saver.restore(sess, save_path='./model/crnn.model')
+        dd, log_probs = sess.run([decoded[0], log_prob], feed_dict={inputs: inputs})
         seq = u.sparseTensor_to_seq(dd)
         print(seq)
 
