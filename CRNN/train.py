@@ -1,4 +1,4 @@
-import cv2
+# _*_ coding:utf-8 _*_
 import tensorflow as tf
 from CRNN.model import Model
 from CRNN.util import Util, sparseTensor_to_seq, Test

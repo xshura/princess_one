@@ -1,3 +1,4 @@
+# _*_ coding:utf-8 _*_
 """
 工具类
 create_time: 2018/5/10
@@ -113,7 +114,7 @@ class Util(object):
             # 判断如果大于两位就把后面的连接在一起作为label
             if len(x) > 2:
                 for i in range(2,len(x)):
-                    l += i
+                    l = str(l) + str(i)
             labels_y.append(l)
         # 将文字label转换为对应的索引 然后进行onehot编码
         labels_encode = []
@@ -259,6 +260,25 @@ class Test():
         seq_len = np.ones(inputs.shape[0]) * self.IMAGE_WIDTH
         return file_path, inputs, seq_len
 
+def label_util():
+    res = ""
+    for root, dirs, files in os.walk("D:\\work\\tianchi\\dataset\\txt6001-9000\\"):
+        for file in files:
+            file_path = root+file
+            txt = open(file_path, encoding='utf-8')
+            lines = txt.readlines()
+            for line in lines:
+                line = line.strip('\n').split(',')
+                if line[8] == "###": continue
+                for s in line[8]:
+                    if s not in res:
+                        res = res + str(s)
+        fr = open('result.txt', 'a')
+        fr.write(res)
+        print('finished!')
+        print(res)
+        fr.close()
+
 if __name__ == '__main__':
     u = Util()
     # t = Test(256, 64, 5, "D:\\work\\tianchi\\train_set\\")
@@ -268,11 +288,12 @@ if __name__ == '__main__':
     # batch_x, batch_y, seq_len = u.get_next_batch(batch_size=128)
     # print(batch_x[0])
     # print(batch_y[0])
-    str = ["我是好人", "小帅是大神"]
-    labels_encode = []
-    for label in str:
-        l = [int(u.encode_maps[x]) for x in label]
-        labels_encode.append(l)
-    sparse = u.seq_to_sparseTensor(labels_encode)
-    seq = sparseTensor_to_seq(sparse)
-    print(seq)
+    # str = ["我是好人", "小帅是大神"]
+    # labels_encode = []
+    # for label in str:
+    #     l = [int(u.encode_maps[x]) for x in label]
+    #     labels_encode.append(l)
+    # sparse = u.seq_to_sparseTensor(labels_encode)
+    # seq = sparseTensor_to_seq(sparse)
+    # print(seq)
+    label_util()

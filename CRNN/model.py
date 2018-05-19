@@ -1,3 +1,4 @@
+# _*_ coding:utf-8 _*_
 """
 模型类
 CNN + LSTM + CTC

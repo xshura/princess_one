@@ -1,4 +1,4 @@
-#coding:UTF-8
+# _*_ coding:utf-8 _*_
 """
 字符集label
 create_time: 2018/5/10
